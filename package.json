@@ -1,14 +1,19 @@
+
 {
-  "name": "bittorrent-bridge-2",
-  "version": "2.0.0",
+  "name": "bittorrent-bridge",
+  "version": "2.0.1",
   "private": true,
-  "description": "A small, authenticated WebTorrent-to-Safari download bridge for lawful content.",
+  "description": "BitTorrent Bridge for iPhone Safari",
   "main": "server.js",
-  "scripts": { "start": "node server.js" },
-  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": "20.18.3"
+  },
   "dependencies": {
-    "express": "^4.21.2",
-    "multer": "^2.0.2",
+    "express": "4.21.2",
+    "multer": "2.0.2",
     "webtorrent": "2.1.24"
   }
 }
