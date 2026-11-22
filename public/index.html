@@ -1,72 +1,811 @@
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Bridge Client</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b1222">
+  <title>BitTorrent Bridge 2.0</title>
+
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #0f172a; color: #f8fafc; padding: 16px; margin: 0; }
-    .box { max-width: 640px; margin: 0 auto; }
-    input, button { width: 100%; box-sizing: border-box; padding: 12px; margin-top: 8px; border-radius: 8px; border: 1px solid #334155; font-size: 15px; }
-    input { background: #1e293b; color: #fff; }
-    button { background: #2563eb; color: #fff; font-weight: bold; border: none; }
-    .card { background: #1e293b; border-radius: 10px; padding: 12px; margin-top: 12px; }
-    a { display: inline-block; margin-top: 6px; color: #60a5fa; }
+    :root {
+      color-scheme: dark;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0b1222;
+      color: #f8fafc;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: calc(18px + env(safe-area-inset-top))
+        16px calc(28px + env(safe-area-inset-bottom));
+      background: #0b1222;
+    }
+
+    .wrap {
+      max-width: 760px;
+      margin: auto;
+    }
+
+    h1 {
+      font-size: clamp(25px, 6vw, 34px);
+      margin: 16px 0 8px;
+      letter-spacing: -.5px;
+    }
+
+    .sub {
+      color: #9aa9c0;
+      margin: 0 0 22px;
+      font-size: 14px;
+    }
+
+    .panel, .torrent {
+      background: #172238;
+      border: 1px solid #2d3b55;
+      border-radius: 17px;
+      padding: 16px;
+      margin: 14px 0;
+    }
+
+    label {
+      display: block;
+      color: #cbd5e1;
+      font-size: 13px;
+      margin: 12px 0 7px;
+    }
+
+    input, button {
+      font: inherit;
+      width: 100%;
+      border-radius: 12px;
+      min-height: 48px;
+    }
+
+    input {
+      background: #0f1a2e;
+      border: 1px solid #34445f;
+      color: #fff;
+      padding: 12px;
+    }
+
+    input[type=file] {
+      padding: 9px;
+      font-size: 13px;
+    }
+
+    button {
+      border: 0;
+      background: #2563eb;
+      color: white;
+      font-weight: 750;
+      padding: 13px;
+      margin-top: 12px;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: #263650;
+    }
+
+    button.danger {
+      background: #7f2936;
+    }
+
+    button:disabled {
+      opacity: .5;
+    }
+
+    .row {
+      display: flex;
+      gap: 9px;
+      align-items: center;
+    }
+
+    .row button {
+      flex: 1;
+    }
+
+    .muted {
+      color: #9aa9c0;
+      font-size: 13px;
+    }
+
+    .status {
+      padding: 10px 12px;
+      border-radius: 11px;
+      background: #0f1a2e;
+      color: #cbd5e1;
+      margin-top: 12px;
+      font-size: 13px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .torrent h3 {
+      font-size: 16px;
+      margin: 0 0 10px;
+      overflow-wrap: anywhere;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      color: #b7c4d8;
+      font-size: 12px;
+    }
+
+    .pill {
+      background: #263650;
+      padding: 5px 9px;
+      border-radius: 99px;
+    }
+
+    .bar {
+      height: 8px;
+      background: #0b1222;
+      border-radius: 99px;
+      overflow: hidden;
+      margin: 12px 0 7px;
+    }
+
+    .bar span {
+      display: block;
+      height: 100%;
+      background: #3b82f6;
+      width: 0;
+    }
+
+    .file {
+      border-top: 1px solid #2d3b55;
+      padding-top: 11px;
+      margin-top: 11px;
+    }
+
+    .file-name {
+      overflow-wrap: anywhere;
+      font-size: 13px;
+    }
+
+    .file button {
+      margin-top: 8px;
+      min-height: 42px;
+      padding: 10px;
+    }
+
+    .small {
+      font-size: 12px;
+      color: #9aa9c0;
+      line-height: 1.55;
+    }
+
+    .warning {
+      border-left: 3px solid #e5a93d;
+      padding-left: 10px;
+    }
+
+    .hidden {
+      display: none;
+    }
   </style>
 </head>
+
 <body>
-  <div class="box">
-    <h2>BitTorrent Bridge (iPhone)</h2>
-    <input id="magnetInput" type="text" placeholder="magnet:?xt=urn:btih:..." />
-    <input id="fileInput" type="file" />
-    <button onclick="addSource()">追加して取得開始</button>
-    <div id="statusArea"></div>
-  </div>
+<main class="wrap">
 
-  <script>
-    async function addSource() {
-      const magnet = document.getElementById('magnetInput').value.trim();
-      const file = document.getElementById('fileInput').files[0];
-      let payload = magnet;
+  <h1>BitTorrent Bridge 2.0</h1>
 
-      if (file) {
-        const buf = await file.arrayBuffer();
-        const bytes = new Uint8Array(buf);
-        let bin = '';
-        for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-        payload = 'base64:' + btoa(bin);
+  <p class="sub">
+    Torrent取得状況を確認して、ファイルをiPhoneへ保存
+  </p>
+
+  <!-- 登録パネル -->
+  <section class="panel">
+
+    <label for="token">
+      アクセスキー（Renderの BRIDGE_TOKEN）
+    </label>
+
+    <input
+      id="token"
+      type="password"
+      autocomplete="current-password"
+      placeholder="Renderで設定したアクセスキー"
+    >
+
+    <div class="row">
+      <button class="secondary" id="saveToken">
+        キーを保存
+      </button>
+
+      <button class="secondary" id="forgetToken">
+        キーを消去
+      </button>
+    </div>
+
+    <label for="magnet">
+      マグネットリンク
+    </label>
+
+    <input
+      id="magnet"
+      type="url"
+      autocapitalize="off"
+      spellcheck="false"
+      placeholder="magnet:?xt=urn:btih:..."
+    >
+
+    <button id="addMagnet">
+      マグネットを追加
+    </button>
+
+    <label for="torrentFile">
+      または .torrent ファイル
+    </label>
+
+    <input
+      id="torrentFile"
+      type="file"
+      accept=".torrent,application/x-bittorrent"
+    >
+
+    <button id="addFile">
+      .torrentをアップロード
+    </button>
+
+    <div id="message" class="status" role="status">
+      アクセスキーを入力して保存してください。
+    </div>
+
+  </section>
+
+  <!-- ダウンロード一覧 -->
+  <section>
+
+    <div class="row">
+      <h2 style="font-size:19px;margin:22px 0 8px">
+        ダウンロード一覧
+      </h2>
+
+      <button
+        class="secondary"
+        id="refresh"
+        style="width:auto;margin:12px 0 0;padding:9px 13px;min-height:40px"
+      >
+        更新
+      </button>
+    </div>
+
+    <div id="list">
+      <p class="muted">
+        Torrentはまだ登録されていません。
+      </p>
+    </div>
+
+  </section>
+
+  <!-- 注意事項 -->
+  <section class="panel small warning">
+
+    <strong>iPhoneへの保存：</strong>
+
+    ファイルのダウンロードボタンを押し、
+    Safariのダウンロード一覧から「ファイル」アプリへ保存してください。
+    RARの展開にはRAR対応アプリが必要です。
+
+    <br><br>
+
+    <strong>無料Renderの注意：</strong>
+
+    サーバーの一時ファイルはスリープ・再起動・再デプロイで
+    消える場合があります。
+    大容量ファイルの長時間取得や保存には向きません。
+
+  </section>
+
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+const tokenInput = $('token');
+
+let refreshTimer;
+
+tokenInput.value =
+  localStorage.getItem('bridgeToken') || '';
+
+function headers() {
+  return {
+    'x-bridge-token': tokenInput.value
+  };
+}
+
+function message(text) {
+  $('message').textContent = text;
+}
+
+// API通信
+async function api(url, options = {}) {
+
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      ...headers(),
+      ...(options.headers || {})
+    }
+  });
+
+  const type =
+    res.headers.get('content-type') || '';
+
+  const data = type.includes('application/json')
+    ? await res.json()
+    : await res.text();
+
+  if (!res.ok) {
+    throw new Error(
+      data.error || data || `HTTP ${res.status}`
+    );
+  }
+
+  return data;
+}
+
+// アクセスキー保存
+$('saveToken').onclick = () => {
+
+  localStorage.setItem(
+    'bridgeToken',
+    tokenInput.value.trim()
+  );
+
+  tokenInput.value =
+    tokenInput.value.trim();
+
+  message(
+    'アクセスキーをこのSafariに保存しました。'
+  );
+
+  refresh();
+};
+
+// アクセスキー削除
+$('forgetToken').onclick = () => {
+
+  localStorage.removeItem('bridgeToken');
+
+  tokenInput.value = '';
+
+  message('アクセスキーを消去しました。');
+};
+
+// マグネットリンク追加
+$('addMagnet').onclick = async () => {
+
+  const magnet =
+    $('magnet').value.trim();
+
+  if (!magnet.startsWith('magnet:?')) {
+    return message(
+      '有効なマグネットリンクを入力してください。'
+    );
+  }
+
+  try {
+
+    const d = await api('/api/add', {
+      method: 'POST',
+
+      headers: {
+        'Content-Type': 'application/json'
+      },
+
+      body: JSON.stringify({
+        magnetOrTorrent: magnet
+      })
+    });
+
+    $('magnet').value = '';
+
+    message(d.message);
+
+    refresh();
+
+  } catch (e) {
+
+    message('追加エラー：' + e.message);
+
+  }
+};
+
+// Torrentファイルアップロード
+$('addFile').onclick = async () => {
+
+  const file =
+    $('torrentFile').files[0];
+
+  if (!file) {
+    return message(
+      '.torrentファイルを選択してください。'
+    );
+  }
+
+  const form = new FormData();
+
+  form.append(
+    'torrent',
+    file,
+    file.name
+  );
+
+  try {
+
+    const d = await api('/api/add-file', {
+      method: 'POST',
+      body: form
+    });
+
+    $('torrentFile').value = '';
+
+    message(d.message);
+
+    refresh();
+
+  } catch (e) {
+
+    message(
+      'アップロードエラー：' + e.message
+    );
+
+  }
+};
+
+// 手動更新
+$('refresh').onclick = refresh;
+
+// ファイル容量表示
+function fmtBytes(n) {
+
+  if (!n) return '0 B';
+
+  const u = [
+    'B',
+    'KB',
+    'MB',
+    'GB',
+    'TB'
+  ];
+
+  let i = 0;
+
+  while (
+    n >= 1024 &&
+    i < u.length - 1
+  ) {
+    n /= 1024;
+    i++;
+  }
+
+  return `${n.toFixed(i ? 1 : 0)} ${u[i]}`;
+}
+
+// 状態表示
+function stateLabel(t) {
+
+  return ({
+    adding: '登録処理中',
+    metadata: 'メタデータ取得中',
+    'finding-peers': 'ピア探索中',
+    downloading: 'ダウンロード中',
+    completed: '完了',
+    error: 'エラー'
+  })[t] || t;
+
+}
+
+// 安全なDOM生成
+function el(tag, cls, txt) {
+
+  const e = document.createElement(tag);
+
+  if (cls) e.className = cls;
+
+  if (txt !== undefined) {
+    e.textContent = txt;
+  }
+
+  return e;
+}
+
+// ファイルダウンロード
+async function downloadFile(id, index) {
+
+  try {
+
+    const d = await api('/api/ticket', {
+      method: 'POST',
+
+      headers: {
+        'Content-Type': 'application/json'
+      },
+
+      body: JSON.stringify({
+        id,
+        fileIndex: index
+      })
+    });
+
+    location.href = d.url;
+
+  } catch (e) {
+
+    message(
+      'ダウンロード準備エラー：' + e.message
+    );
+
+  }
+}
+
+// Torrent削除
+async function removeTorrent(id) {
+
+  if (!confirm(
+    'このTorrentを一覧から削除しますか？サーバー上のファイルは削除しません。'
+  )) {
+    return;
+  }
+
+  try {
+
+    await api(
+      '/api/torrents/' + encodeURIComponent(id),
+      {
+        method: 'DELETE'
+      }
+    );
+
+    refresh();
+
+  } catch (e) {
+
+    message(e.message);
+
+  }
+}
+
+// Torrent一覧取得
+async function refresh() {
+
+  if (!tokenInput.value.trim()) {
+
+    message(
+      'アクセスキーを入力してください。'
+    );
+
+    return;
+  }
+
+  try {
+
+    const d = await api('/api/status');
+
+    const list = $('list');
+
+    list.replaceChildren();
+
+    if (!d.torrents.length) {
+
+      list.append(
+        el(
+          'p',
+          'muted',
+          'Torrentはまだ登録されていません。'
+        )
+      );
+
+      return;
+    }
+
+    for (const t of d.torrents) {
+
+      const card =
+        el('article', 'torrent');
+
+      card.append(
+        el(
+          'h3',
+          '',
+          t.name || '名前取得中…'
+        )
+      );
+
+      // ステータス
+      const meta = el('div', 'meta');
+
+      meta.append(
+        el(
+          'span',
+          'pill',
+          stateLabel(t.state)
+        ),
+
+        el(
+          'span',
+          'pill',
+          `進捗 ${t.progress}%`
+        ),
+
+        el(
+          'span',
+          'pill',
+          `速度 ${fmtBytes(t.downloadSpeed || 0)}/s`
+        ),
+
+        el(
+          'span',
+          'pill',
+          `ピア ${t.numPeers || 0}`
+        )
+      );
+
+      card.append(meta);
+
+      // 進捗バー
+      const bar =
+        el('div', 'bar');
+
+      const fill =
+        el('span');
+
+      fill.style.width =
+        Math.max(
+          0,
+          Math.min(100, t.progress || 0)
+        ) + '%';
+
+      bar.append(fill);
+
+      card.append(bar);
+
+      // 詳細
+      card.append(
+        el(
+          'div',
+          'small',
+          `InfoHash: ${t.infoHash || '取得中'} ・ 受信: ${fmtBytes(t.downloadedBytes || 0)}`
+        )
+      );
+
+      // エラー
+      if (t.error) {
+
+        card.append(
+          el(
+            'div',
+            'status',
+            'エラー：' + t.error
+          )
+        );
+
       }
 
-      const res = await fetch('/api/add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ magnetOrTorrent: payload })
+      // ピア通知
+      if (t.lastPeerNotice) {
+
+        card.append(
+          el(
+            'div',
+            'small',
+            `ピア探索通知：${t.lastPeerNotice}`
+          )
+        );
+
+      }
+
+      // 警告
+      (t.warnings || []).forEach(w => {
+
+        card.append(
+          el(
+            'div',
+            'small',
+            '警告：' + w
+          )
+        );
+
       });
-      const data = await res.json();
-      alert(data.ok ? '追加しました' : (data.error || '失敗しました'));
-      refreshStatus();
+
+      // ファイル一覧
+      if (
+        t.files &&
+        t.files.length
+      ) {
+
+        t.files.forEach(f => {
+
+          const row =
+            el('div', 'file');
+
+          row.append(
+            el(
+              'div',
+              'file-name',
+              `${f.name}（${fmtBytes(f.length)} / ${f.progress}%）`
+            )
+          );
+
+          const btn = el(
+            'button',
+            '',
+            f.done
+              ? 'iPhoneにダウンロード'
+              : '取得しながらダウンロード'
+          );
+
+          btn.onclick = () => {
+            downloadFile(t.id, f.index);
+          };
+
+          row.append(btn);
+
+          card.append(row);
+
+        });
+
+      } else if (t.state !== 'error') {
+
+        card.append(
+          el(
+            'p',
+            'small',
+            'ファイル情報を待っています。ピアが見つからない場合はRenderのLogsも確認してください。'
+          )
+        );
+
+      }
+
+      // 削除ボタン
+      const del =
+        el(
+          'button',
+          'danger',
+          '一覧から削除'
+        );
+
+      del.onclick = () => {
+        removeTorrent(t.id);
+      };
+
+      card.append(del);
+
+      list.append(card);
+
     }
 
-    async function refreshStatus() {
-      const res = await fetch('/api/status');
-      const data = await res.json();
-      const area = document.getElementById('statusArea');
-      area.innerHTML = (data.torrents || []).map(t => `
-        <div class="card">
-          <div><strong>${t.name}</strong></div>
-          <div>進捗: ${t.progress}% / ピア: ${t.numPeers}</div>
-          ${(t.files || []).map(f => `
-            <div>
-              <span>${f.name} (${f.progress}%)</span>
-              <a href="/api/file/${t.infoHash}/${f.index}">ダウンロード</a>
-            </div>
-          `).join('')}
-        </div>
-      `).join('');
-    }
+  } catch (e) {
 
-    setInterval(refreshStatus, 2000);
-    refreshStatus();
-  </script>
+    message(
+      '通信エラー：' + e.message
+    );
+
+  }
+
+}
+
+// 初回更新・自動更新
+refresh();
+
+refreshTimer = setInterval(
+  refresh,
+  5000
+);
+
+</script>
+
 </body>
 </html>
