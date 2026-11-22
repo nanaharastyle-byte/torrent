@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bridge Client</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #0f172a; color: #f8fafc; padding: 16px; margin: 0; }
+    .box { max-width: 640px; margin: 0 auto; }
+    input, button { width: 100%; box-sizing: border-box; padding: 12px; margin-top: 8px; border-radius: 8px; border: 1px solid #334155; font-size: 15px; }
+    input { background: #1e293b; color: #fff; }
+    button { background: #2563eb; color: #fff; font-weight: bold; border: none; }
+    .card { background: #1e293b; border-radius: 10px; padding: 12px; margin-top: 12px; }
+    a { display: inline-block; margin-top: 6px; color: #60a5fa; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h2>BitTorrent Bridge (iPhone)</h2>
+    <input id="magnetInput" type="text" placeholder="magnet:?xt=urn:btih:..." />
+    <input id="fileInput" type="file" />
+    <button onclick="addSource()">追加して取得開始</button>
+    <div id="statusArea"></div>
+  </div>
+
+  <script>
+    async function addSource() {
+      const magnet = document.getElementById('magnetInput').value.trim();
+      const file = document.getElementById('fileInput').files[0];
+      let payload = magnet;
+
+      if (file) {
+        const buf = await file.arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        let bin = '';
+        for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+        payload = 'base64:' + btoa(bin);
+      }
+
+      const res = await fetch('/api/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ magnetOrTorrent: payload })
+      });
+      const data = await res.json();
+      alert(data.ok ? '追加しました' : (data.error || '失敗しました'));
+      refreshStatus();
+    }
+
+    async function refreshStatus() {
+      const res = await fetch('/api/status');
+      const data = await res.json();
+      const area = document.getElementById('statusArea');
+      area.innerHTML = (data.torrents || []).map(t => `
+        <div class="card">
+          <div><strong>${t.name}</strong></div>
+          <div>進捗: ${t.progress}% / ピア: ${t.numPeers}</div>
+          ${(t.files || []).map(f => `
+            <div>
+              <span>${f.name} (${f.progress}%)</span>
+              <a href="/api/file/${t.infoHash}/${f.index}">ダウンロード</a>
+            </div>
+          `).join('')}
+        </div>
+      `).join('');
+    }
+
+    setInterval(refreshStatus, 2000);
+    refreshStatus();
+  </script>
+</body>
+</html>
